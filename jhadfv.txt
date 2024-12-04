@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Ensure the canvas takes up full screen */
+        canvas {
+    width: 100vw; /* Use full viewport width */
+    height: 100vh; /* Use full viewport height */
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1; /* Ensure it's behind the balloons */
+    overflow: hidden;
+    overflow-x: hidden;
+}
+    </style>
+</head>
+<body>
+    <!-- Balloons Containers -->
+    <div class="balloon-container">
+        <div class="balloon balloon1">H</div>
+        <div class="balloon balloon1">A</div>
+        <div class="balloon balloon1">P</div>
+        <div class="balloon balloon1">P</div>
+        <div class="balloon balloon1">Y</div>
+    </div>
+    <div class="balloon-container">
+        <div class="balloon balloon2">B</div>
+        <div class="balloon balloon2">I</div>
+        <div class="balloon balloon2">R</div>
+        <div class="balloon balloon2">T</div>
+        <div class="balloon balloon2">H</div>
+        <div class="balloon balloon2">D</div>
+        <div class="balloon balloon2">A</div>
+        <div class="balloon balloon2">Y</div>
+    </div>
+    <div class="balloon-container">
+        <div class="balloon balloon3">S</div>
+        <div class="balloon balloon3">H</div>
+        <div class="balloon balloon3">I</div>
+        <div class="balloon balloon3">Z</div>
+        <div class="balloon balloon3">A</div>
+    </div>
+
+    <!-- Firework Container -->
+    <div class="firework-container">
+        <div class="firework"></div>
+    </div>
+
+    <canvas></canvas>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script type="text/javascript">
+        $(function(){
+            var c = document.querySelector('canvas'),
+                ctx = c.getContext('2d'),
+                width = c.width = window.innerWidth,
+                height = c.height = window.innerHeight,
+                n_stars = 500,
+                stars = [],
+                twinkleFactor = .6,
+                maxStarRadius = 8,
+                maxFireworks = 10,  // Limit fireworks to 10
+                minStrength = 2,
+                maxStrength = 15,
+                minTrails = 10,
+                maxTrails = 40,
+                particleRadius = 2,
+                trailLength = 5,
+                LIFE = 140,
+                g = 5e-2,
+                D = 1e-3;
+
+            // Particle definition
+            var Particle = function(x, y, vx, vy, ax, ay, colour){
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.ax = ax;
+                this.ay = ay;
+                this.life = LIFE;
+                this.path = [];
+                this.colour = colour;
+                this.r = particleRadius;
+
+                this.update = function(){
+                    this.life--;
+                    if(this.path.length >= trailLength)
+                        this.path.shift();
+                    this.path.push([this.x, this.y])
+                    this.vy += this.ay;
+                    this.vx += this.ax;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
+                this.draw = function(){
+                    var opacity = ~~(this.life * 100 / LIFE) / 100;
+                    ctx.fillStyle = 'rgba(' + this.colour + (opacity * 0.4) + ')';
+                    if (this.life > LIFE * 0.95)
+                        ctx.fillStyle = '#FFFF00'; // Yellow firework color
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - this.r, this.y);
+                    var i = this.path.length - 1;
+                    ctx.lineTo(this.path[0][0], this.path[0][1]);
+                    ctx.lineTo(this.x + this.r, this.y);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = 'rgba(' + this.colour + opacity + ')';
+                    if (this.life > LIFE * 0.95)
+                        ctx.fillStyle = '#FFFF00'; // Yellow firework color
+                    ctx.beginPath();
+                    ctx.arc(~this.x, ~this.y, this.r, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+
+            // Firework
+            var Firework = function(){
+                this.x = width * (Math.random() * 0.8 + 0.1);
+                this.y = height * (Math.random() * 0.8 + 0.1);
+                this.strength = Math.random() * (maxStrength - minStrength) + minStrength;
+                this.colour = getRandomColor(); // Random color
+                this.life = 0;
+                this.particles = (function (x, y, strength, colour){
+                    var p = [];
+                    var n = ~~(Math.random() * (maxTrails - minTrails)) + minTrails;
+                    var ay = g;
+                    for (var i = n; i--;){
+                        var ax = D;
+                        var angle = i * Math.PI * 2 / n;
+                        if (angle < Math.PI) ax *= -1;
+                        var vx = strength * Math.sin(angle);
+                        var vy = strength * Math.cos(angle);
+                        p.push(new Particle(x, y, vx, vy, ax, ay, colour));
+                    }
+                    return p;
+                })(this.x, this.y, this.strength, this.colour);
+
+                this.update = function(){
+                    this.life++;
+                    if(this.life < 0)
+                        return;
+                    for (var i = this.particles.length; i--;){
+                        this.particles[i].update();
+                        this.particles[i].draw();
+                    }
+                }
+            };
+
+            // Star Definition
+            var Star = function(){
+                this.x = Math.random() * width;
+                this.y = Math.random() * maxStarRadius;
+                this.b = ~~(Math.random() * 100) / 100;
+            }
+            Star.prototype.draw = function(){
+                this.b += twinkleFactor * (Math.random() - .5);
+                ctx.fillStyle = 'rgba(255,0,0,' + this.b + ')';
+                ctx.beginPath();
+                ctx.arc(~this.x, ~this.y, this.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            // Function to create stars
+            function createStars(){
+                for(var i = n_stars; i--;)
+                    stars.push(new Star);
+            }
+
+            // Get Random Color for Fireworks
+            function getRandomColor(){
+                var colors = ['255,0,0', '0,255,0', '0,0,255', '255,255,0', '255,255,255', '0,255,255', '255,165,0'];
+                return colors[Math.floor(Math.random() * colors.length)] + ',1';
+            }
+
+            // Main Function
+            function main(){
+                ctx.fillStyle = 'rgba(0, 0, 0, 0)'; // Transparent background
+                ctx.fillRect(0, 0, width, height);
+
+                for(var i = n_stars; i--;)
+                    stars[i].draw();
+
+                for (var i = 0; i < maxFireworks; i++) {
+                    if (fw[i]) {
+                        fw[i].update();
+                    }
+                }
+
+                window.requestAnimationFrame(main);
+            }
+
+            // Init Function
+            function init(){
+                fw = [];
+                for (var i = 0; i < maxFireworks; i++) {
+                    fw.push(new Firework);
+                }
+
+                createStars();
+                main();
+            }
+            init();
+        });
+    </script>
+</body>
+</html>
+
